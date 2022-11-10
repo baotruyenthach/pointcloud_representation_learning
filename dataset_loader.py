@@ -17,7 +17,7 @@ class AEDataset(Dataset):
     """predict mani point using segmentation"""
 
 
-    def __init__(self, percentage = 1.0):
+    def __init__(self, dataset_path):
         """
         Args:
 
@@ -26,12 +26,12 @@ class AEDataset(Dataset):
         # self.dataset_path = "/home/baothach/shape_servo_data/manipulation_points/multi_boxes_1000Pa/processed_seg_data"
         # self.dataset_path = "/home/baothach/shape_servo_data/manipulation_points/bimanual/multi_boxes_1000Pa/processed_seg_data"
         # self.dataset_path = "/home/baothach/shape_servo_data/manipulation_points/multi_boxes_1000Pa_2/processed_seg_data"
-        self.dataset_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/data"
+        # self.dataset_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/data"
+        self.dataset_path = dataset_path
 
         self.filenames = os.listdir(self.dataset_path)
         
-        if percentage != 1.0:
-            self.filenames = os.listdir(self.dataset_path)[:int(percentage*len(self.filenames))]
+
  
 
 
@@ -47,8 +47,7 @@ class AEDataset(Dataset):
     def __getitem__(self, idx):        
         sample = self.load_pickle_data(self.filenames[idx])
 
-        pc = torch.tensor(sample["full_pc"]).float()    
-        # print(pc.shape)
+        pc = torch.tensor(sample["full_pc"]).float()  # shape (B, 3, num_pts)  
         
         sample = pc  
 

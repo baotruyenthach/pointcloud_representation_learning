@@ -8,13 +8,15 @@ from pointnet2_utils import PointNetSetAbstraction,PointNetFeaturePropagation
 class AutoEncoder(nn.Module):
     def __init__(self, normal_channel=False):
         super(AutoEncoder, self).__init__()
-        self.loss = ChamferLoss()
+        self.chamfer_loss = ChamferLoss()
+        self.huber_loss = HuberLoss(reduction="sum")
+
         if normal_channel:
             additional_channel = 3
         else:
             additional_channel = 0
         self.normal_channel = normal_channel
-
+        self.num_pts = 256#*3
         
         # self.sa1 = PointNetSetAbstraction(npoint=512, radius=0.2, nsample=32, in_channel=6+additional_channel, mlp=[64], group_all=False)
         # self.sa2 = PointNetSetAbstraction(npoint=128, radius=0.4, nsample=64, in_channel=64 + 3, mlp=[128], group_all=False)
@@ -39,8 +41,9 @@ class AutoEncoder(nn.Module):
         # self.fc2 = nn.Linear(256, 512)
         # self.bn2 = nn.GroupNorm(1, 512)
 
-        # self.fc3 = nn.Linear(512, 256*3)
-        # self.bn3 = nn.GroupNorm(1, 256*3)
+        # self.fc3 = nn.Linear(512, self.num_pts*3)
+        # self.bn3 = nn.GroupNorm(1, self.num_pts*3)
+
 
         ### Architecture 2
         self.sa1 = PointNetSetAbstraction(npoint=256, radius=0.2, nsample=32, in_channel=6+additional_channel, mlp=[64, 64], group_all=False)
@@ -53,8 +56,8 @@ class AutoEncoder(nn.Module):
         self.fc2 = nn.Linear(512, 512)
         self.bn2 = nn.GroupNorm(1, 512)
 
-        self.fc3 = nn.Linear(512, 256*3)
-        self.bn3 = nn.GroupNorm(1, 256*3)
+        self.fc3 = nn.Linear(512, self.num_pts*3)
+        self.bn3 = nn.GroupNorm(1, self.num_pts*3)
 
 
 
@@ -79,16 +82,22 @@ class AutoEncoder(nn.Module):
         x = F.relu(self.bn1(self.fc1(x)))
         x = F.relu(self.bn2(self.fc2(x)))
         x = self.fc3(x)
-        x = x.view(B, 3, 256)
+        x = x.view(B, 3, self.num_pts)
 
         return x
 
 
 
-    def get_loss(self, input, output):
+    def get_chamfer_loss(self, input, output):
         # input shape  (batch_size, num_pts, 3)
         # output shape (batch_size, num_pts, 3)
-        return self.loss(input, output)
+        return self.chamfer_loss(input, output)
+
+    def get_huber_loss(self, input, output):
+        # shape  (batch_size, 3, num_pts)
+
+        return self.huber_loss(input, output)
+
 
 class ChamferLoss(nn.Module):
     def __init__(self):
@@ -118,6 +127,28 @@ class ChamferLoss(nn.Module):
         mins, _ = torch.min(P, 2)
         loss_2 = torch.sum(mins)
         return loss_1 + loss_2
+
+class HuberLoss(nn.Module):
+    def __init__(self, reduction, delta=1.0):
+        super(HuberLoss, self).__init__()
+        self.reduction = reduction
+        self.delta = delta
+
+    def forward(self, y_pred, y_gt):
+        B, N, C = y_pred.shape
+
+        abs_error = torch.abs(y_pred - y_gt)
+
+        error = torch.where(abs_error < self.delta,
+                            0.5*(y_pred - y_gt)**2,
+                            self.delta*(abs_error - 0.5*self.delta))
+
+        if self.reduction == 'mean':
+            loss = torch.mean(error)
+        elif self.reduction == 'sum':
+            loss = torch.sum(error)
+
+        return loss
 
 if __name__ == '__main__':
 
