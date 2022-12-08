@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from utils import *
 from architecture import AutoEncoder
 from farthest_point_sampling import *
+import os
 # np.random.seed(0)
 def down_sampling(pc, num_pts=1024):
     farthest_indices,_ = farthest_point_sampling(pc, num_pts)
@@ -14,11 +15,13 @@ def down_sampling(pc, num_pts=1024):
     return pc
 
 device = torch.device("cuda")
-model = AutoEncoder(normal_channel=False).to(device)#weights_5_objects_pretrained_EMD
+# model = AutoEncoder(num_points=256, embedding_size=256).to(device)
+model = AutoEncoder(num_points=512*3, embedding_size=1024).to(device)
 model.load_state_dict(torch.load("/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/weights/epoch 150"))
+# model.load_state_dict(torch.load("/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_3/point_cloud_dataset/pc_embedding_weights/weights_single_ball_partial_1/epoch 150"))
 model.eval()
 
-for _ in range(10):
+for k in range(10):
     # base_pos = np.array([0.0, -0.44, 0.16+0.015])
     # delta_x = np.random.uniform(low = -0.1 , high = 0.1)
     # delta_y = np.random.uniform(low = -0.03 , high = 0.02)
@@ -47,9 +50,20 @@ for _ in range(10):
 
     final_pc = []
     # final_pc.extend(pc_table)
-    for j in range(4):
+    for j in range(3):
         pc = sample_3_objects_pc()  
         final_pc.extend(pc)
+
+    # final_pc = []
+    # for j in range(1):
+    #     pc = sample_scene(j, num_pts_per_object=256, radius=0.02) 
+    #     final_pc.extend(pc)
+
+    # data_recording_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_3/point_cloud_dataset/partial_pc_single_ball_test"
+    # file = os.path.join(data_recording_path, f"sample {k}.pickle")
+    # with open(file, 'rb') as handle:
+    #     data = pickle.load(handle)   
+    #     final_pc = data["partial_pc"] 
 
 
     # final_pc = []
@@ -109,8 +123,8 @@ for _ in range(10):
     pcd2 = open3d.geometry.PointCloud()
     pcd2.points = open3d.utility.Vector3dVector(np.array(reconstructed_points)) 
     pcd2.paint_uniform_color([1, 0, 0])
-    # open3d.visualization.draw_geometries([pcd, pcd2])  
-    open3d.visualization.draw_geometries([pcd, pcd2.translate((0,0,0.25))]) 
+    open3d.visualization.draw_geometries([pcd, pcd2.translate((0,0,0.3))])  
+    # open3d.visualization.draw_geometries([pcd, pcd2.translate((0,0,0.1))]) 
 
     # coor = open3d.geometry.TriangleMesh.create_coordinate_frame(size=0.05)
     # open3d.visualization.draw_geometries([pcd, pcd2, coor])

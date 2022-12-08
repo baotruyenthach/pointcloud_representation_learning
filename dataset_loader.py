@@ -47,7 +47,8 @@ class AEDataset(Dataset):
     def __getitem__(self, idx):        
         sample = self.load_pickle_data(self.filenames[idx])
 
-        pc = torch.tensor(sample["full_pc"]).float()  # shape (B, 3, num_pts)  
+        # pc = torch.tensor(sample["full_pc"]).float()  # shape (B, 3, num_pts)  
+        pc = torch.tensor(sample["partial_pc"]).permute(1,0).float()  # shape (B, 3, num_pts)  
         
         sample = pc  
 

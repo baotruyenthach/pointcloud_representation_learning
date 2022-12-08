@@ -42,20 +42,20 @@ def train(model, device, train_loader, optimizer, epoch):
         # loss = loss_1 #+ loss_2 
 
         d = earth_mover_distance(data, recon_batch, transpose=True)
-        loss_1 = d[0] / 2 + d[1] * 2 + d[2] / 3
+        loss_1 = (d[0] / 2 + d[1] * 2 + d[2] / 3)*34
         loss_2 = model.get_chamfer_loss(data.permute(0,2,1), recon_batch.permute(0,2,1))
-        loss = loss_1*20 + loss_2 
+        loss = loss_1 + loss_2 
 
         # import pdb; pdb.set_trace()
         loss.backward()
         
         train_loss += loss.item()
         optimizer.step()
-        if batch_idx % 10 == 0:
+        if batch_idx % 100 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(sample), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-            print("loss 1 and 2:", loss_1.item(), " | ", loss_2.item())
+            print(f"loss 1 and 2: {loss_1.item()}, {loss_2.item()}; Ratio: {loss_2.item()/loss_1.item()}")
     print('====> Epoch: {} Average loss: {:.6f}'.format(
               epoch, train_loss/num_batch))  
 
@@ -109,17 +109,18 @@ if __name__ == "__main__":
     torch.manual_seed(2021)
     device = torch.device("cuda")
 
-    train_len = 45000
-    test_len = 4999
+    train_len = 8000
+    test_len = 409
     total_len = train_len + test_len
 
-    dataset_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/data_on_table_3_objects"
+    # dataset_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/data_on_table_3_objects"
+    dataset_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_3/point_cloud_dataset/partial_pc_single_ball"
     dataset = AEDataset(dataset_path)
     train_dataset = torch.utils.data.Subset(dataset, range(0, train_len))
     test_dataset = torch.utils.data.Subset(dataset, range(train_len, total_len))
     
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=512, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=512, shuffle=True)
 
     
     print("training data: ", len(train_dataset))
@@ -128,15 +129,16 @@ if __name__ == "__main__":
 
 
 
-    model = AutoEncoder(num_points=512*3).to(device)  # simple conv1D
+    model = AutoEncoder(num_points=256, embedding_size=256).to(device)  # simple conv1D
     # model = AutoEncoder2(num_points=512*3).to(device)   # PointNet++
     model.apply(weights_init)
 
-    weight_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/weights"
+    # weight_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/weights"
+    weight_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_3/point_cloud_dataset/pc_embedding_weights/weights_single_ball_partial_1"
     # model.load_state_dict(torch.load(os.path.join(weight_path, "epoch " + str(31))))
     # pretrained_path = "/home/baothach/shape_servo_data/teleoperation/sanity_check_examples/ex_2/autoencoder/weights_3_objects_EMD"
     # model.load_state_dict(torch.load(os.path.join(pretrained_path, "epoch " + str(60))))
-    
+    os.makedirs(weight_path, exist_ok=True)
     
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.1)
@@ -145,6 +147,6 @@ if __name__ == "__main__":
         scheduler.step()
         test(model, device, test_loader, epoch)
         
-        # if epoch % 1 == 0:            
-        #     torch.save(model.state_dict(), os.path.join(weight_path, "epoch " + str(epoch)))
+        if epoch % 1 == 0:            
+            torch.save(model.state_dict(), os.path.join(weight_path, "epoch " + str(epoch)))
 

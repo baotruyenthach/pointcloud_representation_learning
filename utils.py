@@ -2,6 +2,24 @@ import numpy as np
 import trimesh
 import random
 
+def sample_scene(idx, num_pts_per_object, radius):
+    base_pos = np.array([0.0, -0.44, 0.16+0.015])
+
+    if idx == 0:
+        mesh = trimesh.creation.icosphere(radius=radius)
+    # elif idx == 1:
+    #     mesh = trimesh.creation.cone(radius = radius, height=0.08)
+
+
+    random_pos = np.array(base_pos) + np.random.uniform(low=[-0.1,-0.03,-0.05], high=[0.1,0.02,0.05], size=3)
+    T = trimesh.transformations.translation_matrix(random_pos)
+    mesh.apply_transform(T)
+
+
+    pc = trimesh.sample.sample_surface_even(mesh, count=num_pts_per_object)[0]
+
+    return list(pc)
+
 def sample_sphere_pc():
     base_pos = np.array([0.0, -0.44, 0.16+0.015])
     delta_x = np.random.uniform(low = -0.1 , high = 0.1)

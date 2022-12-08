@@ -6,7 +6,7 @@ from pointconv_util_groupnorm_2 import PointConvDensitySetAbstraction,PointConvF
 # from pointnet2_utils import PointNetSetAbstraction,PointNetFeaturePropagation
 
 class AutoEncoder(nn.Module):
-    def __init__(self, num_points):
+    def __init__(self, num_points, embedding_size=256):
         super(AutoEncoder, self).__init__()
         self.chamfer_loss = ChamferLoss()
         self.huber_loss = HuberLoss(reduction="sum")
@@ -14,27 +14,37 @@ class AutoEncoder(nn.Module):
         point_dim = 3
 
         self.num_points = num_points
+        self.embedding_size = embedding_size
 
         self.conv1 = nn.Conv1d(in_channels=point_dim, out_channels=64, kernel_size=1)
         self.conv2 = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1)
         self.conv3 = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=1)
         self.conv4 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=1)
-        self.conv5 = nn.Conv1d(in_channels=128, out_channels=1024, kernel_size=1)
+        # self.conv5 = nn.Conv1d(in_channels=128, out_channels=1024, kernel_size=1)
 
-        self.fc1 = nn.Linear(in_features=1024, out_features=1024)
-        self.fc2 = nn.Linear(in_features=1024, out_features=1024)
-        self.fc3 = nn.Linear(in_features=1024, out_features=self.num_points*3)
+        # self.fc1 = nn.Linear(in_features=1024, out_features=1024)
+        # self.fc2 = nn.Linear(in_features=1024, out_features=1024)
+        # self.fc3 = nn.Linear(in_features=1024, out_features=self.num_points*3)
+
+        # # batch norm
+        # self.bn1 = nn.GroupNorm(1, 64)
+        # self.bn2 = nn.GroupNorm(1, 128)
+        # self.bn3 = nn.GroupNorm(1, 1024)
+
+
+        self.conv5 = nn.Conv1d(in_channels=128, out_channels=self.embedding_size, kernel_size=1)
+
+        self.fc1 = nn.Linear(in_features=self.embedding_size, out_features=self.embedding_size)
+        self.fc2 = nn.Linear(in_features=self.embedding_size, out_features=self.embedding_size)
+        self.fc3 = nn.Linear(in_features=self.embedding_size, out_features=self.num_points*3)
 
         # batch norm
         self.bn1 = nn.GroupNorm(1, 64)
         self.bn2 = nn.GroupNorm(1, 128)
-        self.bn3 = nn.GroupNorm(1, 1024)
+        self.bn3 = nn.GroupNorm(1, self.embedding_size)
 
-        # self.bn1 = nn.BatchNorm1d(64)
-        # self.bn2 = nn.BatchNorm1d(128)
-        # self.bn3 = nn.BatchNorm1d(1024)
 
-    def forward(self, x):
+    def forward(self, x, get_global_embedding=False):
         batch_size = x.shape[0]
         point_dim = x.shape[1]
         num_points = x.shape[2]
@@ -48,9 +58,13 @@ class AutoEncoder(nn.Module):
 
         # do max pooling 
         x = torch.max(x, 2, keepdim=True)[0]
-        x = x.view(-1, 1024)
+        x = x.view(-1, self.embedding_size)
         # get the global embedding
         global_feat = x
+        # print("global_feat.shape:", global_feat.shape)
+
+        if get_global_embedding:            
+            return global_feat
 
         #decoder
         x = F.relu(self.bn3(self.fc1(x)))
@@ -59,6 +73,8 @@ class AutoEncoder(nn.Module):
 
         #do reshaping
         reconstructed_points = reconstructed_points.reshape(batch_size, point_dim, self.num_points)
+
+
 
         return reconstructed_points
 
@@ -218,8 +234,11 @@ class HuberLoss(nn.Module):
 if __name__ == '__main__':
 
     device = torch.device("cuda") # "cpu"
-    pc = torch.randn((8,3,1024)).float().to(device)
-    model = AutoEncoder().to(device)
+    np = 1234
+    pc = torch.randn((8,3,np)).float().to(device)
+    model = AutoEncoder(num_points=np, embedding_size=256).to(device)
     out = model(pc)
- 
+    print(out.shape)
+
+    out = model(pc, get_global_embedding=True) 
     print(out.shape)
